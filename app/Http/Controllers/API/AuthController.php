@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Customer;
 use App\Models\Agent;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
@@ -19,19 +20,24 @@ class AuthController extends Controller
     // -----------------------------
     public function register(Request $request)
     {
+        DB::beginTransaction();
         $request->validate([
             'phone'=>'required|string|unique:users,phone',
             'password'=>'required|string|min:6',
-            'role'=>'required|in:client,agent',
+            'fullname'=>'required|string',
+            'email'=>'required|string',
+            'role'=>'required|in:customer,agent',
         ]);
 
         $user = User::create([
+            'email'=>$request->email,
+            'name'=>$request->fullname,
             'phone'=>$request->phone,
             'password'=>Hash::make($request->password),
             'role'=>$request->role,
         ]);
 
-        if($request->role === 'client'){
+        if($request->role === 'customer'){
             Customer::create(['user_id'=>$user->id,'full_name'=>$request->full_name ?? '']);
         }else{
             Agent::create([
@@ -45,9 +51,12 @@ class AuthController extends Controller
 
         $token = $user->createToken('api_token')->plainTextToken;
 
+        DB::commit();
         return response()->json([
-            'user'=>$user,
-            'token'=>$token
+            'data'=>[
+                'user'=>$user,
+                'token'=>$token
+            ]
         ]);
     }
 
