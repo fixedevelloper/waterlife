@@ -36,7 +36,9 @@ Route::get('collects', [CollectController::class, 'index']);
 Route::post('collects/assign', [CollectController::class, 'assign']); // assigner collecteur
 Route::post('collects/{collect}/complete', [CollectController::class, 'complete']); // marquer collecté
 Route::get('collects/lasts', [CollectController::class, 'lastCollects']);
-
+Route::get('collects/{id}/detail', [CollectController::class, 'show']);
+    Route::get('collects/{id}/comparaison', [CollectController::class, 'collect_show']);
+    Route::post('collects/{id}/update', [CollectController::class, 'update']);
 // -----------------------------
 // Livraisons
 // -----------------------------
@@ -44,6 +46,7 @@ Route::get('deliveries', [DeliveryController::class, 'index']);
 Route::post('deliveries/assign', [DeliveryController::class, 'assign']); // assigner livreur
 Route::post('deliveries/{delivery}/complete', [DeliveryController::class, 'complete']); // marquer livré
 Route::get('deliveries/lasts', [DeliveryController::class, 'lastDeliveries']);
+    Route::get('deliveries/{id}/detail', [DeliveryController::class, 'show']);
 
 // -----------------------------
 // Agents

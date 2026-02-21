@@ -12,10 +12,14 @@ class DeliveryItemResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'product_id' => $this->product_id,
-            'product_name' => $this->product?->name,
-            'volume' => $this->product?->volume,
+            'product' => $this->whenLoaded('product', function () {
+                return [
+                    'name' => $this->product?->name,
+                    'volume_liters' => $this->product?->volume_liters,
+                ];
+            }),
             'quantity_delivered' => $this->quantity_delivered,
+            'quantity_collected' => $this->quantity_collected,
         ];
     }
 }

@@ -11,11 +11,14 @@ class DeliveryResource extends JsonResource
         return [
             'id' => $this->id,
             'order_id' => $this->order_id,
-
+            'location'=>[
+                'latitude'=>$this->order->address->latitude,
+                'longitude'=>$this->order->address->longitude
+            ],
             'delivery_agent' => [
                 'id' => $this->deliveryAgent?->id,
-                'name' => $this->deliveryAgent?->name,
-                'phone' => $this->deliveryAgent?->phone,
+                'name' => $this->deliveryAgent?->agent->name,
+                'phone' => $this->deliveryAgent?->agent->phone,
             ],
 
             'status' => $this->status,
@@ -26,7 +29,16 @@ class DeliveryResource extends JsonResource
 
             'delivery_proof_type' => $this->delivery_proof_type,
             'delivery_proof_value' => $this->delivery_proof_value,
-
+     // 🔹 Customer
+            'customer' => $this->whenLoaded('order', function () {
+        $customer = $this->order?->customer;
+            $user = $customer?->user;
+            return $user ? [
+                'id' => $customer->id,
+                'name' => $user->name,
+                'phone' => $user->phone,
+            ] : null;
+        }),
             'delivery_image' => $this->delivery_image
         ? asset('storage/'.$this->delivery_image)
         : null,

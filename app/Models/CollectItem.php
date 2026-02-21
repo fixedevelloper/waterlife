@@ -9,7 +9,12 @@ class CollectItem extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['collect_id','product_id','quantity_collected'];
+    protected $fillable = [
+        'collect_id',
+        'product_id',
+        'quantity_ordered',
+        'quantity_collected'
+    ];
 
     public function collect()
     {

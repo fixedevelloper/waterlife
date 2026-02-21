@@ -99,4 +99,14 @@ class DeliveryController extends Controller
 
         return response()->json($delivery->load('items'));
     }
+    public function show($id)
+    {
+        $delivery = Delivery::with([
+            'order.items.product',
+            'items.product',
+            'agent'
+        ])->findOrFail($id);
+
+        return new DeliveryResource($delivery);
+    }
 }
