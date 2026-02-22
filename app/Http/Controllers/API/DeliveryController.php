@@ -12,6 +12,7 @@ use App\Models\Delivery;
 use App\Models\DeliveryItem;
 use App\Models\Order;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 class DeliveryController extends Controller
 {
@@ -71,7 +72,7 @@ class DeliveryController extends Controller
     }
 
     // Marquer livraison terminée
-    public function complete(Request $request, Delivery $delivery)
+    public function complete2(Request $request, Delivery $delivery)
     {
         $request->validate([
             'items'=>'required|array|min:1', // array de {product_id, quantity_delivered}
@@ -98,6 +99,90 @@ class DeliveryController extends Controller
         $order->update(['delivery_status'=>'delivered','status'=>'delivered','delivered_at'=>now()]);
 
         return response()->json($delivery->load('items'));
+    }
+    public function complete(Request $request, $deliveryId)
+    {
+        // 🔹 Si 'items' est passé en JSON string, le décoder
+        if (is_string($request->items)) {
+            $request->merge([
+                'items' => json_decode($request->items, true)
+            ]);
+        }
+
+        try {
+
+
+            logger($request->all());
+
+            // 🔹 Validation
+            $data = $request->validate([
+                'items' => 'required|array',
+                'items.*.item_id' => 'required|exists:delivery_items,id',
+                'items.*.quantity_delivered' => 'required|integer|min:0',
+                'delivery_proof_type' => 'nullable|in:otp,photo,signature',
+                'otp' => 'nullable|string',
+                'delivery_image' => 'nullable|image|max:2048',
+                'signature' => 'nullable|string', // base64
+            ]);
+
+            logger($data);
+
+            $delivery = Delivery::findOrFail($deliveryId);
+
+            // 🔄 Mise à jour des items
+            foreach ($data['items'] as $item) {
+                DeliveryItem::where('id', $item['item_id'])
+                    ->update([
+                        'quantity_delivered' => $item['quantity_delivered']
+                    ]);
+            }
+
+            // 📸 Traitement image
+            $imagePath = null;
+            if ($request->hasFile('delivery_image')) {
+                $imagePath = $request->file('delivery_image')->store('deliveries', 'public');
+            }
+
+            // ✍️ Traitement signature base64
+            $signaturePath = null;
+            if (!empty($data['signature'])) {
+                $signatureData = str_replace(['data:image/png;base64,', ' '], ['', '+'], $data['signature']);
+                $fileName = 'signature_' . time() . '.png';
+                Storage::disk('public')->put("signatures/$fileName", base64_decode($signatureData));
+                $signaturePath = "signatures/$fileName";
+            }
+
+            // 🔹 Définir la valeur du proof en fonction du type choisi (sécurisé)
+            $proofValue = null;
+            switch ($data['delivery_proof_type'] ?? '') {
+                case 'photo':
+                    $proofValue = $imagePath;
+                    break;
+                case 'signature':
+                    $proofValue = $signaturePath;
+                    break;
+                case 'otp':
+                default:
+                    $proofValue = null;
+                    break;
+            }
+
+            // ✅ Finalisation de la livraison
+            $delivery->update([
+                'status' => 'delivered',
+                'delivered_at' => now(),
+                'delivery_proof_type' => $data['delivery_proof_type'],
+                'delivery_proof_value' => $proofValue
+            ]);
+
+            return response()->json([
+                'message' => 'Livraison validée avec succès'
+            ]);
+        } catch (\Exception $exception) {
+            logger($exception->getMessage());
+            return Helpers::error('erreur de livraison');
+
+        }
     }
     public function show($id)
     {
