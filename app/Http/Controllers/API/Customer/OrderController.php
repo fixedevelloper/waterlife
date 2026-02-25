@@ -1,12 +1,11 @@
 <?php
 
 
-namespace App\Http\Controllers\API;
+namespace App\Http\Controllers\API\Customer;
 
 
 use App\Http\Controllers\Controller;
 use App\Http\Helpers\Helpers;
-use App\Http\Resources\OrderDetailResource;
 use App\Http\Resources\OrderMiniResource;
 use App\Http\Resources\OrderResource;
 use App\Models\Address;
@@ -169,21 +168,21 @@ class OrderController extends Controller
 // Voir détails d'une commande
     public function show(Order $order)
     {
+        // Sécurité : vérifier que la commande appartient au client connecté
+  /*      if ($order->customer_id !== auth()->user()->customer->id) {
+            return Helpers::error('Unauthorized', 403);
+        }*/
+
         $order->load([
             'items.product',
             'customer.user',
             'collector.user',
             'deliveryAgent.user',
-            'collect',
-            'delivery',
-            'collect.items',
-            'collect.collector',
-            'delivery.items',
-            'delivery.agent',
-            'address',
+            'collects.items',
+            'deliveries.items'
         ]);
 
-        return Helpers::success(new OrderDetailResource($order));
+        return new OrderMiniResource($order);
     }
 
 

@@ -51,14 +51,14 @@ class Order extends Model
         return $this->hasMany(OrderItem::class);
     }
 
-    public function collects()
+    public function collect()
     {
-        return $this->hasMany(Collect::class);
+        return $this->hasOne(Collect::class); // 1 commande → 1 collecte
     }
 
-    public function deliveries()
+    public function delivery()
     {
-        return $this->hasMany(Delivery::class);
+        return $this->hasOne(Delivery::class); // 1 commande → 1 livraison
     }
 
     public function payments()

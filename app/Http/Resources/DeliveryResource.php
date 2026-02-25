@@ -15,12 +15,13 @@ class DeliveryResource extends JsonResource
                 'latitude'=>$this->order->address->latitude,
                 'longitude'=>$this->order->address->longitude
             ],
-            'delivery_agent' => [
-                'id' => $this->deliveryAgent?->id,
-                'name' => $this->deliveryAgent?->agent->name,
-                'phone' => $this->deliveryAgent?->agent->phone,
-            ],
-
+     'delivery_agent' => $this->whenLoaded('agent', function () {
+        $user = $this->agent?->user;
+            return $user ? [
+                'id' => $this->agent->id,
+                'name' => $user->name,
+                'phone' => $user->phone,
+            ] : null; }),
             'status' => $this->status,
 
             'assigned_at' => $this->assigned_at,

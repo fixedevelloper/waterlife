@@ -65,11 +65,12 @@ class AuthController extends Controller
     // -----------------------------
     public function login(Request $request)
     {
+
         $request->validate([
             'phone'=>'required|string',
             'password'=>'required|string',
         ]);
-
+        logger($request->all());
         $user = User::where('phone',$request->phone)->first();
 
         if(!$user || !Hash::check($request->password,$user->password)){

@@ -5,8 +5,13 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class OrderMiniResource extends JsonResource
+class OrderDetailResource extends JsonResource
 {
+    /**
+     * Transform the resource into an array.
+     *
+     * @return array<string, mixed>
+     */
     public function toArray(Request $request): array
     {
         return [
@@ -20,7 +25,7 @@ class OrderMiniResource extends JsonResource
             'address' => $this->whenLoaded('address', function () {
                 return [
                     'id' => $this->address->id,
-                    'full_address' => $this->address->full_address,
+                    'full_address' => $this->address->label,
                     'latitude' => $this->address->latitude,
                     'longitude' => $this->address->longitude,
                 ];
@@ -68,14 +73,9 @@ class OrderMiniResource extends JsonResource
             'customer' => new CustomerResource(
                 $this->whenLoaded('customer')
             ),
+            'collect' => new CollectResource($this->whenLoaded('collect')),
+            'delivery' => new DeliveryResource($this->whenLoaded('delivery')),
 
-            'collector' => new AgentResource(
-                $this->whenLoaded('collector')
-            ),
-
-            'delivery_agent' => new AgentResource(
-                $this->whenLoaded('deliveryAgent')
-            ),
 
             'items' => OrderItemResource::collection(
                 $this->whenLoaded('items')

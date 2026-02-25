@@ -9,23 +9,26 @@ use App\Http\Controllers\API\PaymentController;
 use App\Http\Controllers\API\ProductController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
 // -----------------------------
 // Produits
 // -----------------------------
 Route::get('products', [ProductController::class, 'index']);
 Route::post('products', [ProductController::class, 'store']);
+Route::get('products/{product}', [ProductController::class, 'show']);
+Route::put('products/{product}', [ProductController::class, 'update']);
 
 // -----------------------------
 // Clients
 // -----------------------------
 Route::get('customers', [CustomerController::class, 'index']);
 Route::get('customers/{customer}', [CustomerController::class, 'show']);
+    Route::put('customers/{customer}', [CustomerController::class, 'update']);
 
 // -----------------------------
 // Commandes
 // -----------------------------
-Route::get('orders', [OrderController::class, 'index'])->middleware();
+Route::get('orders', [OrderController::class, 'indexAdmin']);
 Route::get('orders/{order}', [OrderController::class, 'show']);
 Route::patch('orders/{order}/status', [OrderController::class, 'updateStatus']); // changer status
 
@@ -53,6 +56,7 @@ Route::get('deliveries/lasts', [DeliveryController::class, 'lastDeliveries']);
 // -----------------------------
 Route::get('agents', [AgentController::class, 'index']);
 Route::get('agents/{agent}', [AgentController::class, 'show']);
+Route::put('agents/{agent}', [AgentController::class, 'update']);
 
 // -----------------------------
 // Paiements
