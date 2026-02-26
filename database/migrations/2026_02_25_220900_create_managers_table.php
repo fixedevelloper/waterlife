@@ -25,7 +25,7 @@ return new class extends Migration
             $table->timestamps();
         });
         Schema::table('users', function (Blueprint $table) {
-            $table->enum('role', ['customer', 'agent', 'manger', 'admin'])->change()->default('customer');
+            $table->enum('role', ['customer', 'agent', 'manager', 'admin'])->change()->default('customer');
         });
     }
 
