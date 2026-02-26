@@ -17,6 +17,7 @@ use App\Models\Customer;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
+use function Symfony\Component\HttpKernel\HttpCache\store;
 
 class OrderController extends Controller
 {
@@ -41,7 +42,7 @@ class OrderController extends Controller
         );
     }
 
-    public function indexAdmin()
+    public function processingOrders()
     {
         $orders = Order::with([
             'customer.user',
@@ -51,11 +52,13 @@ class OrderController extends Controller
             'zone',
             'items.product'
         ])
+            ->where('status', 'processing')
             ->latest()
-            ->paginate(10);
+            ->get(); // ✅ IMPORTANT
 
         return Helpers::success(
-             OrderResource::collection($orders));
+            OrderResource::collection($orders)
+        );
     }
     public function index()
     {
@@ -168,11 +171,6 @@ class OrderController extends Controller
 // Voir détails d'une commande
     public function show(Order $order)
     {
-        // Sécurité : vérifier que la commande appartient au client connecté
-  /*      if ($order->customer_id !== auth()->user()->customer->id) {
-            return Helpers::error('Unauthorized', 403);
-        }*/
-
         $order->load([
             'items.product',
             'customer.user',
@@ -184,8 +182,50 @@ class OrderController extends Controller
 
         return new OrderMiniResource($order);
     }
+    public function showByOrderNumber(string $orderNumber)
+    {
+        $order = Order::query()->where('order_number', $orderNumber)->first();
 
+        if (!$order) {
+            return response()->json([
+                'message' => 'Commande introuvable'
+            ], 404);
+        }
 
+        return new OrderResource($order);
+    }
+
+    public function updateByNumber(string $orderNumber, string $status)
+    {
+        logger($orderNumber);
+        $order = Order::where('order_number', $orderNumber)->first();
+
+        if (!$order) {
+            return response()->json([
+                'message' => 'Commande introuvable'
+            ], 404);
+        }
+
+        // Optionnel : Valider que le statut est correct
+        $allowedStatuses = [
+            'pending',
+            'collector_assigned',
+            'processing',
+            'delivery_assigned',
+            'delivered',
+            'cancelled'];
+        if (!in_array($status, $allowedStatuses)) {
+            return response()->json([
+                'message' => 'Statut invalide'
+            ], 400);
+        }
+
+        $order->update([
+            'status' => $status
+        ]);
+
+        return new OrderResource($order);
+    }
     // Mettre à jour le statut
     public function updateStatus(Request $request, Order $order)
     {

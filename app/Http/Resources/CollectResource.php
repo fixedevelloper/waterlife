@@ -11,11 +11,11 @@ class CollectResource extends JsonResource
         return [
             'id' => $this->id,
             'order_id' => $this->order_id,
+            'order_number' => $this->order->order_number,
             'location'=>[
                 'latitude'=>$this->order->address->latitude,
                 'longitude'=>$this->order->address->longitude
             ],
-
             // 🔹 Collector
             'collector' => $this->whenLoaded('collector', function () {
                 $user = $this->collector?->user;
