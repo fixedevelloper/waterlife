@@ -40,7 +40,7 @@ class ManagerController extends Controller
             'email'=>$validated['email'],
             'phone'=>$validated['phone'],
             'password'=>Hash::make('password'),
-            'role'=>'manger'
+            'role'=>'manager'
         ]);
         $manager = Manager::create([
             'user_id'=>$user->id
