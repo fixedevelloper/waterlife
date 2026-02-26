@@ -33,7 +33,7 @@ Route::get('customers/{customer}', [CustomerController::class, 'show']);
 Route::get('orders', [OrderController::class, 'indexAdmin']);
 Route::get('orders/{order}', [OrderController::class, 'show']);
 Route::patch('orders/{order}/status', [OrderController::class, 'updateStatus']); // changer status
-
+    Route::get('orders-stats', [OrderController::class, 'stats']);
 // -----------------------------
 // Collectes
 // -----------------------------
@@ -72,4 +72,5 @@ Route::post('payments', [PaymentController::class, 'store']);
 
     Route::post('versements/{id}/validate', [VersementController::class, 'validateVersement']);
     Route::post('versements/{id}/reject', [VersementController::class, 'reject']);
+
 });

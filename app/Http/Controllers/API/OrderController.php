@@ -275,5 +275,19 @@ class OrderController extends Controller
 
         return $earthRadius * $c;
     }
+    public function stats()
+    {
+        $orders = Order::selectRaw('MONTH(created_at) as month, COUNT(*) as total')
+            ->groupBy('month')
+            ->orderBy('month')
+            ->get()
+            ->map(function($item) {
+                return [
+                    'month' => \Carbon\Carbon::create()->month($item->month)->format('M'),
+                    'total' => $item->total,
+                ];
+            });
 
+        return response()->json($orders);
+    }
 }
