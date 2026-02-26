@@ -16,7 +16,7 @@ class AgentMiniResource extends JsonResource
              'phone' => $this->user?->phone,
             'can_collect' => $this->can_collect,
             'can_deliver' => $this->can_deliver,
-            'is_available' => $this->is_available,
+            'is_active' => $this->is_available,
 
             'vehicle_type' => $this->vehicle_type,
         ];

@@ -7,17 +7,23 @@ use App\Http\Controllers\Controller;
 use App\Http\Helpers\Helpers;
 use App\Http\Resources\AgentMiniResource;
 use App\Http\Resources\AgentResource;
+use App\Models\User;
 use Illuminate\Http\Request;
 use App\Models\Agent;
+use Illuminate\Support\Facades\Hash;
 
 class AgentController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
+        $perPage = $request->get('per_page', 10);
+
+        $agents = Agent::with(['user', 'zone'])
+            ->latest()
+            ->paginate($perPage);
+
         return Helpers::success(
-            AgentMiniResource::collection(
-                Agent::with('user', 'zone')->get()
-            )
+            AgentMiniResource::collection($agents)
         );
     }
     public function store(Request $request)
@@ -30,7 +36,16 @@ class AgentController extends Controller
             'can_deliver' => 'sometimes',
         ]);
 
-        $agent = Agent::create($validated);
+        $user=User::create([
+           'name'=>$validated['name'],
+            'email'=>$validated['email'],
+            'phone'=>$validated['phone'],
+            'password'=>Hash::make('password'),
+            'role'=>'agent'
+        ]);
+        $agent = Agent::create([
+            'user_id'=>$user->id
+        ]);
         return response()->json($agent);
     }
     public function update(Agent $agent, Request $request)

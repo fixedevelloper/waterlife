@@ -4,12 +4,14 @@ use App\Http\Controllers\API\AgentController;
 use App\Http\Controllers\API\CollectController;
 use App\Http\Controllers\API\CustomerController;
 use App\Http\Controllers\API\DeliveryController;
+use App\Http\Controllers\API\ManagerController;
 use App\Http\Controllers\API\OrderController;
 use App\Http\Controllers\API\PaymentController;
 use App\Http\Controllers\API\ProductController;
+use App\Http\Controllers\API\VersementController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
+Route::middleware(['auth:sanctum','admin'])->prefix('admin')->group(function () {
 // -----------------------------
 // Produits
 // -----------------------------
@@ -63,4 +65,11 @@ Route::put('agents/{agent}', [AgentController::class, 'update']);
 // -----------------------------
 Route::get('payments', [PaymentController::class, 'index']);
 Route::post('payments', [PaymentController::class, 'store']);
+
+    Route::apiResource('managers', ManagerController::class);
+
+    Route::apiResource('versements', VersementController::class);
+
+    Route::post('versements/{id}/validate', [VersementController::class, 'validateVersement']);
+    Route::post('versements/{id}/reject', [VersementController::class, 'reject']);
 });
