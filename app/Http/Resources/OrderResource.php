@@ -39,6 +39,7 @@ class OrderResource extends JsonResource
                 return [
                     'id' => $this->address->id,
                     'full_address' => $this->address->full_address,
+                    'label' => $this->address->label,
                     'latitude' => $this->address->latitude,
                     'longitude' => $this->address->longitude,
                 ];

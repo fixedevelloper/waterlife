@@ -1,12 +1,14 @@
 <?php
 
+
 use App\Http\Controllers\API\AuthController;
+use App\Http\Controllers\API\Customer\AgentController;
 use App\Http\Controllers\API\Customer\CollectController;
 use App\Http\Controllers\API\Customer\DeliveryController;
 use App\Http\Controllers\API\Customer\OrderController;
 use App\Http\Controllers\API\CustomerController;
 use App\Http\Controllers\API\PaymentController;
-use App\Http\Controllers\API\ProductController;
+use App\Http\Controllers\API\Customer\ProductController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('register', [AuthController::class,'register']);
@@ -17,9 +19,9 @@ Route::middleware('auth:sanctum')->group(function(){
     Route::get('me', [AuthController::class,'me']);
     Route::get('addresses', [CustomerController::class, 'addresses']);
     Route::post('addresses', [CustomerController::class, 'storeAddresse']);
-
+    Route::get('products', [ProductController::class, 'index']);
     Route::get('collects', [CollectController::class, 'index']);
-    Route::post('collects/assign', [CollectController::class, 'assign']); // assigner collecteur
+    Route::post('collects/assign', [CollectController::class, 'assignCollector']); // assigner collecteur
     Route::post('collects/{collect}/complete', [CollectController::class, 'complete']); // marquer collecté
     Route::get('collects/lasts', [CollectController::class, 'lastCollects']);
     Route::get('collects/{id}/detail', [CollectController::class, 'show']);
@@ -28,7 +30,7 @@ Route::middleware('auth:sanctum')->group(function(){
     // Livraisons
 // -----------------------------
     Route::get('deliveries', [DeliveryController::class, 'index']);
-    Route::post('deliveries/assign', [DeliveryController::class, 'assign']); // assigner livreur
+    Route::post('deliveries/assign', [DeliveryController::class, 'assignDelivery']); // assigner livreur
     Route::post('deliveries/{delivery}/complete', [DeliveryController::class, 'complete']); // marquer livré
     Route::get('deliveries/lasts', [DeliveryController::class, 'lastDeliveries']);
     Route::get('deliveries/{id}/detail', [DeliveryController::class, 'show']);
@@ -42,7 +44,7 @@ Route::get('products', [ProductController::class, 'index']);
 // -----------------------------
 Route::get('customers', [CustomerController::class, 'index']);
 Route::get('customers/{customer}', [CustomerController::class, 'show']);
-
+    Route::get('agents', [AgentController::class, 'index']);
 // -----------------------------
 // Commandes
 // -----------------------------

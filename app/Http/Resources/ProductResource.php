@@ -19,7 +19,7 @@ class ProductResource extends JsonResource
             'name' => $this->name,
             'volume_liters' => $this->volume_liters,
             'base_price' => $this->base_price,
-            'is_active' => $this->is_active,
+            'is_active' => (bool) $this->is_active,
         ];
     }
 }

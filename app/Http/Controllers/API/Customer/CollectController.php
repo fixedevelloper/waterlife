@@ -6,6 +6,7 @@ namespace App\Http\Controllers\API\Customer;
 
 use App\Http\Controllers\Controller;
 use App\Http\Helpers\Helpers;
+use App\Http\Helpers\OrderStatus;
 use App\Http\Resources\CollectResource;
 use Illuminate\Http\Request;
 use App\Models\Collect;
@@ -66,32 +67,67 @@ class CollectController extends Controller
 
         return response()->json($collect);
     }
+
     public function assignCollector(Request $request)
     {
         $request->validate([
-            'order_id'=>'required|exists:orders,id',
-            'collector_id'=>'required|exists:agents,id'
+            'order_id' => 'required|exists:orders,id',
+            'agent_id' => 'required|exists:agents,id'
         ]);
-        $orderId=$request->order_id;
-        DB::transaction(function () use ($orderId, $request) {
 
-            $order = Order::with('items')->findOrFail($orderId);
+        $collect = DB::transaction(function () use ($request) {
 
-            // 🔹 Eviter double collecte
-            if ($order->collect) {
+            $order = Order::with(['items', 'collect'])->findOrFail($request->order_id);
+
+            // 🔴 Vérifier statut commande
+            if (in_array($order->status, ['delivered', 'cancelled'])) {
                 throw ValidationException::withMessages([
-                    'collect' => 'Collecte déjà existante'
+                    'order' => 'Impossible d’assigner une collecte à cette commande'
                 ]);
             }
 
-            // 🔹 Créer la collecte
+            $existingCollect = $order->collect;
+
+            // ✅ CAS 1 : Une collecte existe déjà
+            if ($existingCollect) {
+
+                // 👉 Même agent → UPDATE
+                if ($existingCollect->collector_id == $request->agent_id) {
+
+                    $existingCollect->update([
+                        'status' => 'assigned'
+                    ]);
+
+                    return $existingCollect;
+                }
+
+                // 👉 Autre agent → ANNULER
+                $existingCollect->update([
+                    'status' => 'cancelled'
+                ]);
+
+                // option clean (si tu veux supprimer les items)
+                CollectItem::where('collect_id', $existingCollect->id)->delete();
+            }
+
+            // 🔴 Vérifier si agent occupé
+            $busy = Collect::where('collector_id', $request->agent_id)
+                ->whereIn('status', ['assigned', 'on_route'])
+                ->exists();
+
+            if ($busy) {
+                return Helpers::validation('Ce collecteur est déjà en mission');
+
+            }
+
+            // 🔹 Création nouvelle collecte
             $collect = Collect::create([
                 'order_id' => $order->id,
-                'collector_id' => $request->collector_id,
-                'status' => 'pending'
+                'collector_id' => $request->agent_id,
+                'status' => 'assigned'
             ]);
 
-            // 🔹 Copier les items
+            // 🔹 Copier items
             $items = $order->items->map(function ($item) use ($collect) {
                 return [
                     'collect_id' => $collect->id,
@@ -105,15 +141,16 @@ class CollectController extends Controller
 
             CollectItem::insert($items->toArray());
 
-            // 🔹 Update commande
+            // 🔹 Update order
             $order->update([
-                'status' => 'assigned'
+                'status' => OrderStatus::COLECTOR_ASSIGNED,
+                'collection_status' => 'assigned'
             ]);
+
+            return $collect;
         });
 
-        return response()->json([
-            'message' => 'Collecte créée avec succès'
-        ]);
+        return Helpers::success($collect, 'Collecteur assigné avec succès');
     }
 
     // Marquer collecte terminée avec items collectés
@@ -151,24 +188,21 @@ class CollectController extends Controller
     }
     public function collect_show($orderId)
     {
-        $collect = Collect::with([
-            'items.product'
-        ])
+        $collect = Collect::with('items.product')
             ->where('order_id', $orderId)
             ->firstOrFail();
 
         $items = $collect->items->map(function ($item) {
+            $product = $item->product;
 
             return [
                 'id' => $item->id,
-                'name' => $item->product?->name ?? 'Produit inconnu',
-        'volume' => $item->product?->volume_liters
-                ? $item->product->volume_liters . 'L'
-                : '',
-        'quantity_ordered' => $item->quantity_ordered ?? 0,
-        'quantity_collected' => $item->quantity_collected ?? 0
-    ];
-});
+                'name' => $product?->name ?? 'Produit inconnu',
+            'volume' => $product?->volume_liters ? $product->volume_liters . 'L' : '',
+            'quantity_ordered' => $item->quantity_ordered ?? 0,
+            'quantity_collected' => $item->quantity_collected ?? 0,
+        ];
+    });
 
         return Helpers::success([
             'collect_id' => $collect->id,

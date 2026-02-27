@@ -60,19 +60,52 @@ class OrderController extends Controller
             OrderResource::collection($orders)
         );
     }
-    public function index()
+    public function index(Request $request)
     {
-        $orders = Order::with([
+        $user = auth()->user();
+
+        $query = Order::with([
             'customer.user',
             'collector.user',
             'deliveryAgent.user',
             'address',
             'zone',
             'items.product'
-        ])
-            ->where('customer_id', auth()->user()->agen->id)
+        ]);
+
+        /*
+        |--------------------------------------------------------------------------
+        | 🔐 Filtrage par rôle
+        |--------------------------------------------------------------------------
+        */
+        if (in_array($user->role, ['agent', 'customer']) && $user->customer) {
+            $query->where('customer_id', $user->customer->id);
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | 🔎 FILTRES OPTIONNELS
+        |--------------------------------------------------------------------------
+        */
+
+        // 🔹 Filtre par status
+        if ($request->filled('status') && $request->status !== 'all') {
+            $statuses = explode(',', $request->status); // ex: status=processing,on_route
+            $query->whereIn('status', $statuses);
+        }
+        // 🔹 Filtre par date (yyyy-mm-dd)
+        if ($request->filled('date')) {
+            $query->whereDate('created_at', $request->date);
+        }
+
+        // 🔹 Filtre par zone
+        if ($request->filled('zone_id')) {
+            $query->where('zone_id', $request->zone_id);
+        }
+
+        $orders = $query
             ->latest()
-            ->paginate(10);
+            ->paginate($request->get('per_page', 10));
 
         return Helpers::success([
             'data' => OrderResource::collection($orders),
@@ -176,8 +209,8 @@ class OrderController extends Controller
             'customer.user',
             'collector.user',
             'deliveryAgent.user',
-            'collects.items',
-            'deliveries.items'
+            'collect.items',
+            'delivery.items'
         ]);
 
         return new OrderMiniResource($order);
