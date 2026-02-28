@@ -6,6 +6,7 @@ namespace App\Http\Controllers\API\Customer;
 
 use App\Http\Controllers\Controller;
 use App\Http\Helpers\Helpers;
+use App\Http\Helpers\ResponseHelper;
 use App\Http\Resources\OrderMiniResource;
 use App\Http\Resources\OrderResource;
 use App\Models\Address;
@@ -107,13 +108,7 @@ class OrderController extends Controller
             ->latest()
             ->paginate($request->get('per_page', 10));
 
-        return Helpers::success([
-            'data' => OrderResource::collection($orders),
-            'current_page' => $orders->currentPage(),
-            'last_page' => $orders->lastPage(),
-            'total' => $orders->total(),
-            'per_page' => $orders->perPage()
-        ]);
+        return ResponseHelper::success(OrderResource::collection($orders),'liste commandes');
     }
 
     // Créer une nouvelle commande

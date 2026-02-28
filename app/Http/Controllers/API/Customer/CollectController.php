@@ -7,6 +7,7 @@ namespace App\Http\Controllers\API\Customer;
 use App\Http\Controllers\Controller;
 use App\Http\Helpers\Helpers;
 use App\Http\Helpers\OrderStatus;
+use App\Http\Helpers\ResponseHelper;
 use App\Http\Resources\CollectResource;
 use Illuminate\Http\Request;
 use App\Models\Collect;
@@ -34,13 +35,11 @@ class CollectController extends Controller
             ->orderByDesc('collected_at')
             ->paginate($perPage, ['*'], 'page', $page);
 
-        return Helpers::success([
-            'data' => CollectResource::collection($deliveries),
-            'current_page' => $deliveries->currentPage(),
-            'last_page' => $deliveries->lastPage(),
-            'total' => $deliveries->total(),
-            'per_page' => $deliveries->perPage()
-        ]);
+
+        return ResponseHelper::success(
+            CollectResource::collection($deliveries),
+            'Liste des livraisons paginée'
+        );
     }
     public function lastCollects()
     {
@@ -49,7 +48,10 @@ class CollectController extends Controller
             ->limit(5)
             ->get();
 
-        return Helpers::success($collects);
+        return ResponseHelper::success(
+            new CollectResource($collects),
+            'Liste des livraisons paginée'
+        );
     }
     // Assigner collecteur
     public function assign(Request $request)
