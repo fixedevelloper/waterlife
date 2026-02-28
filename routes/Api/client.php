@@ -48,7 +48,7 @@ Route::get('customers/{customer}', [CustomerController::class, 'show']);
 // -----------------------------
 // Commandes
 // -----------------------------
-    Route::get('orders-processings', [OrderController::class, 'processingOrders']);
+    Route::get('orders-status', [OrderController::class, 'statusOrders']);
 Route::get('orders', [OrderController::class, 'index']); // toutes les commandes du client connecté
 Route::get('orders-recents', [OrderController::class, 'recentOrders']); // recents les commandes du client connecté
 Route::get('orders/{order}', [OrderController::class, 'show']); // détails

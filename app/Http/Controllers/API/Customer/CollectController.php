@@ -35,7 +35,6 @@ class CollectController extends Controller
             ->orderByDesc('collected_at')
             ->paginate($perPage, ['*'], 'page', $page);
 
-
         return ResponseHelper::success(
             CollectResource::collection($deliveries),
             'Liste des livraisons paginée'
@@ -49,7 +48,7 @@ class CollectController extends Controller
             ->get();
 
         return ResponseHelper::success(
-            new CollectResource($collects),
+             CollectResource::collection($collects),
             'Liste des livraisons paginée'
         );
     }
@@ -74,7 +73,7 @@ class CollectController extends Controller
     {
         $request->validate([
             'order_id' => 'required|exists:orders,id',
-            'agent_id' => 'required|exists:agents,id'
+
         ]);
 
         $collect = DB::transaction(function () use ($request) {
@@ -125,7 +124,7 @@ class CollectController extends Controller
             // 🔹 Création nouvelle collecte
             $collect = Collect::create([
                 'order_id' => $order->id,
-                'collector_id' => $request->agent_id,
+                'collector_id' => Auth::user()->agent->id,
                 'status' => 'assigned'
             ]);
 

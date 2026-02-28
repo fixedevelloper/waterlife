@@ -43,19 +43,27 @@ class OrderController extends Controller
         );
     }
 
-    public function processingOrders()
+    public function statusOrders(Request $request)
     {
-        $orders = Order::with([
+        $status = $request->get('status');
+
+        $query = Order::with([
             'customer.user',
             'collector.user',
             'deliveryAgent.user',
             'address',
             'zone',
             'items.product'
-        ])
-            ->where('status', 'processing')
+        ]);
+
+        // 🔥 Filtre dynamique
+        if (!empty($status) && $status !== 'all') {
+            $query->where('status', $status);
+        }
+
+        $orders = $query
             ->latest()
-            ->get(); // ✅ IMPORTANT
+            ->get(); // ✅ sans pagination
 
         return Helpers::success(
             OrderResource::collection($orders)

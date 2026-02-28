@@ -75,6 +75,7 @@ class CustomerController extends Controller
             'longitude'   => 'required|numeric',
             'latitude'    => 'required|numeric',
             'label'       => 'required|string',
+            'map_label'   => 'nullable|string',
             'description' => 'required|string'
         ]);
 
@@ -85,7 +86,6 @@ class CustomerController extends Controller
 
         $address = Address::create($data);
 
-        logger($address);
         return Helpers::success($address);
     }
 

@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Manager;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
@@ -97,6 +98,25 @@ class DatabaseSeeder extends Seeder
         }
 
         // -----------------------------
+        // Créer agents
+        // -----------------------------
+        $managers = [];
+        for($i=1;$i<=2;$i++){
+            $user = User::create([
+                'name'=>fake()->name(),
+                'phone'=>"69990000$i",
+                'password'=>bcrypt('password'),
+                'role'=>'manager'
+            ]);
+
+            $agent = Manager::create([
+                'user_id'=>$user->id,
+                'zone_id'=>$zone->id,
+            ]);
+            $managers[] = $agent;
+        }
+
+/*        // -----------------------------
         // Créer une commande pour Client 1
         // -----------------------------
         $customer = $customers[0];
@@ -188,7 +208,7 @@ class DatabaseSeeder extends Seeder
             'delivery_status'=>'delivered',
             'status'=>'delivered',
             'delivered_at'=>Carbon::now()
-        ]);
+        ]);*/
 
     }
 }

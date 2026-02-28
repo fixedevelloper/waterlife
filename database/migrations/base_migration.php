@@ -54,6 +54,7 @@ return new class extends Migration {
             $table->foreignId('customer_id')->constrained()->cascadeOnDelete();
             $table->foreignId('zone_id')->constrained()->cascadeOnDelete();
             $table->string('label');
+            $table->string('map_label')->nullable();
             $table->boolean('is_default')->default(false);
             $table->decimal('latitude', 10, 7);
             $table->decimal('longitude', 10, 7);
@@ -140,6 +141,7 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('collect_id')->constrained()->cascadeOnDelete();
             $table->foreignId('product_id')->constrained()->cascadeOnDelete();
+            $table->integer('quantity_ordered')->default(0);
             $table->integer('quantity_collected')->default(0);
             $table->timestamps();
         });
@@ -168,6 +170,7 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('delivery_id')->constrained()->cascadeOnDelete();
             $table->foreignId('product_id')->constrained()->cascadeOnDelete();
+            $table->integer('quantity_collected')->default(0);
             $table->integer('quantity_delivered')->default(0);
             $table->timestamps();
         });
@@ -197,6 +200,53 @@ return new class extends Migration {
             $table->enum('type',['collected_from_customer','returned_to_customer','damaged','lost']);
             $table->timestamps();
         });
+        Schema::create('managers', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+
+            $table->foreignId('zone_id')->nullable()->constrained()->nullOnDelete();
+            $table->string('forage_name')->nullable();
+
+            $table->decimal('balance', 12, 2)->default(0); // 🔥 clé du système
+
+            $table->boolean('is_active')->default(true);
+
+            $table->timestamps();
+        });
+        Schema::create('versements', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('manager_id')->constrained()->cascadeOnDelete();
+
+            // 💰 montant versé à la plateforme
+            $table->decimal('amount', 12, 2);
+
+            // 💳 type
+            $table->enum('method', ['cash', 'mobile_money', 'bank']);
+
+            // 🔗 ref paiement (MoMo / OM)
+            $table->string('reference')->nullable();
+
+            // 📱 opérateur
+            $table->string('provider')->nullable();
+
+            // 📊 statut
+            $table->enum('status', ['pending', 'validated', 'rejected'])->default('pending');
+
+            // 👤 validation
+            $table->foreignId('validated_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->timestamp('validated_at')->nullable();
+
+            // 📅 période concernée (🔥 très important)
+            $table->date('period_start')->nullable();
+            $table->date('period_end')->nullable();
+
+            // 📝 note
+            $table->text('note')->nullable();
+
+            $table->timestamps();
+        });
+
     }
 
     public function down(): void

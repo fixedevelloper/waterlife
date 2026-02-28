@@ -7,6 +7,8 @@ namespace App\Http\Controllers\API\Customer;
 use App\Http\Controllers\Controller;
 use App\Http\Helpers\Helpers;
 use App\Http\Helpers\OrderStatus;
+use App\Http\Helpers\ResponseHelper;
+use App\Http\Resources\CollectResource;
 use App\Http\Resources\DeliveryResource;
 use Illuminate\Http\Request;
 use App\Models\Delivery;
@@ -34,14 +36,10 @@ class DeliveryController extends Controller
             ->where('delivery_agent_id', $agent->agent->id)
             ->orderByDesc('assigned_at')
             ->paginate($perPage, ['*'], 'page', $page);
-
-        return Helpers::success([
-            'data' => DeliveryResource::collection($deliveries),
-            'current_page' => $deliveries->currentPage(),
-            'last_page' => $deliveries->lastPage(),
-            'total' => $deliveries->total(),
-            'per_page' => $deliveries->perPage()
-        ]);
+        return ResponseHelper::success(
+            DeliveryResource::collection($deliveries),
+            'Liste des livraisons paginée'
+        );
     }
 
     public function lastDeliveries()
@@ -58,7 +56,6 @@ class DeliveryController extends Controller
     {
         $request->validate([
             'order_id' => 'required|exists:orders,id',
-            'agent_id' => 'required|exists:agents,id'
         ]);
 
         $delivery = DB::transaction(function () use ($request) {
@@ -118,7 +115,7 @@ class DeliveryController extends Controller
             // 🔹 Création delivery
             $delivery = Delivery::create([
                 'order_id' => $order->id,
-                'delivery_agent_id' => $request->agent_id,
+                'delivery_agent_id' =>  Auth::user()->agent->id,
                 'status' => 'assigned'
             ]);
 
