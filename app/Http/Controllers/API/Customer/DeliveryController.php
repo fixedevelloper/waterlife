@@ -16,6 +16,7 @@ use App\Models\DeliveryItem;
 use App\Models\Order;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
@@ -54,126 +55,84 @@ class DeliveryController extends Controller
     // Assigner livreur
     public function assignDelivery(Request $request)
     {
+        $user = Auth::user();
+
+        if (!$user || !$user->agent) {
+            return Helpers::validation('Non autorisé', 403);
+        }
+
         $request->validate([
             'order_id' => 'required|exists:orders,id',
         ]);
 
-        $delivery = DB::transaction(function () use ($request) {
+        try {
+            $delivery = DB::transaction(function () use ($request, $user) {
+                // 🔒 Lock pour éviter double assign
+                $order = Order::lockForUpdate()
+                    ->with(['items', 'collect.items', 'delivery'])
+                    ->findOrFail($request->order_id);
 
-            // 🔒 Lock pour éviter double assign
-            $order = Order::lockForUpdate()
-                ->with(['items', 'collect.items', 'delivery'])
-                ->findOrFail($request->order_id);
-
-            // 🔴 Vérifier statut commande
-            if (in_array($order->status, ['delivered', 'cancelled'])) {
-                throw ValidationException::withMessages([
-                    'order' => 'Impossible d’assigner une livraison à cette commande'
-                ]);
-            }
-
-            // 🔴 Vérifier collecte
-            if (!$order->collect) {
-                throw ValidationException::withMessages([
-                    'collect' => 'La collecte doit être effectuée avant la livraison'
-                ]);
-            }
-
-            $existingDelivery = $order->delivery;
-
-            // ✅ CAS 1 : delivery existe déjà
-            if ($existingDelivery) {
-
-                // 👉 Même agent → UPDATE
-                if ($existingDelivery->delivery_agent_id == $request->agent_id) {
-
-                    $existingDelivery->update([
-                        'status' => 'assigned'
-                    ]);
-
-                    return $existingDelivery;
+                // 🔴 Vérifier statut commande
+                if (in_array($order->status, ['delivered', 'cancelled'])) {
+                    return Helpers::validation('Impossible d’assigner une livraison à cette commande');
                 }
 
-                // 👉 Autre agent → ANNULER
-                $existingDelivery->update([
-                    'status' => 'cancelled'
+                // 🔴 Vérifier collecte
+                if (!$order->collect) {
+                    return Helpers::validation('La collecte doit être effectuée avant la livraison');
+                }
+
+                $existingDelivery = $order->delivery;
+
+                // ✅ Si une livraison existe déjà
+                if ($existingDelivery) {
+                    if ($existingDelivery->delivery_agent_id == $user->agent->id) {
+                        $existingDelivery->update(['status' => 'assigned']);
+                        return $existingDelivery;
+                    }
+
+                    // Autre agent → annuler l’ancienne livraison
+                    $existingDelivery->update(['status' => 'cancelled']);
+                }
+
+                // 🔹 Créer la livraison pour cette commande
+                $delivery = Delivery::create([
+                    'order_id' => $order->id,
+                    'delivery_agent_id' => $user->agent->id,
+                    'status' => 'assigned'
                 ]);
 
-                // ⚠️ Optionnel : ne pas supprimer pour garder historique
-                // DeliveryItem::where('delivery_id', $existingDelivery->id)->delete();
-            }
-
-            // 🔴 Vérifier si agent occupé
-            $busy = Delivery::where('delivery_agent_id', $request->agent_id)
-                ->whereIn('status', ['assigned', 'on_route'])
-                ->exists();
-
-            if ($busy) {
-                return Helpers::validation('Ce livreur est déjà en mission');
-            }
-
-            // 🔹 Création delivery
-            $delivery = Delivery::create([
-                'order_id' => $order->id,
-                'delivery_agent_id' =>  Auth::user()->agent->id,
-                'status' => 'assigned'
-            ]);
-
-            // 🔹 Copier items collectés
-            $items = $order->collect->items->map(function ($item) use ($delivery) {
-                return [
+                // 🔹 Copier les items collectés
+                $items = $order->collect->items->map(fn($item) => [
                     'delivery_id' => $delivery->id,
                     'product_id' => $item->product_id,
                     'quantity_collected' => $item->quantity_collected,
                     'quantity_delivered' => 0,
                     'created_at' => now(),
                     'updated_at' => now()
-                ];
+                ]);
+
+                if ($items->isNotEmpty()) {
+                    DeliveryItem::insert($items->toArray());
+                }
+
+                // 🔹 Update commande
+                $order->update([
+                    'status' => OrderStatus::DELIVERY_ASSIGNED,
+                    'delivery_status' => 'assigned'
+                ]);
+
+                return $delivery;
             });
 
-            DeliveryItem::insert($items->toArray());
+            return Helpers::success($delivery, 'Livraison assignée avec succès ✅');
 
-            // 🔹 Update commande
-            $order->update([
-                'status' => OrderStatus::DELIVERY_ASSIGNED,
-                'delivery_status' => 'assigned'
-            ]);
-
-            return $delivery;
-        });
-
-        return Helpers::success($delivery, 'Livreur assigné avec succès');
-    }
-
-    // Marquer livraison terminée
-    public function complete2(Request $request, Delivery $delivery)
-    {
-        $request->validate([
-            'items'=>'required|array|min:1', // array de {product_id, quantity_delivered}
-            'delivery_proof_type'=>'nullable|in:otp,photo,signature',
-            'delivery_proof_value'=>'nullable|string'
-        ]);
-
-        foreach($request->items as $item){
-            DeliveryItem::updateOrCreate(
-                ['delivery_id'=>$delivery->id,'product_id'=>$item['product_id']],
-                ['quantity_delivered'=>$item['quantity_delivered']]
-            );
+        } catch (\Exception $e) {
+            Log::error('assignDelivery error: ' . $e->getMessage());
+            return Helpers::validation('Erreur serveur, réessayez plus tard', 500);
         }
-
-        $delivery->update([
-            'status'=>'delivered',
-            'delivered_at'=>now(),
-            'delivery_proof_type'=>$request->delivery_proof_type,
-            'delivery_proof_value'=>$request->delivery_proof_value
-        ]);
-
-        // Mettre à jour la commande
-        $order = $delivery->order;
-        $order->update(['delivery_status'=>'delivered','status'=>'delivered','delivered_at'=>now()]);
-
-        return response()->json($delivery->load('items'));
     }
+
     public function complete(Request $request, $deliveryId)
     {
         // 🔹 Si 'items' est passé en JSON string, le décoder

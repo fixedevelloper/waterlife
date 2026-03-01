@@ -51,7 +51,9 @@ class OrderResource extends JsonResource
             'zone' => new ZoneResource(
                 $this->whenLoaded('zone')
             ),
-
+            'payment' => new PaymentResource(
+                $this->whenLoaded('payment')
+            ),
             // -----------------------------
             // FINANCIALS
             // -----------------------------

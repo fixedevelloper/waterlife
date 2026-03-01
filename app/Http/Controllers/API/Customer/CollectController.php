@@ -15,6 +15,7 @@ use App\Models\CollectItem;
 use App\Models\Order;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class CollectController extends Controller
@@ -71,110 +72,128 @@ class CollectController extends Controller
 
     public function assignCollector(Request $request)
     {
-        $request->validate([
-            'order_id' => 'required|exists:orders,id',
+        $user = Auth::user();
 
+        // 🔐 Vérifier que l'utilisateur est connecté et est un agent
+        if (!$user || !$user->agent) {
+            return Helpers::validation('Non autorisé', 403);
+        }
+
+        // ✅ Validation stricte
+        $request->validate([
+            'order_id' => 'required|integer|exists:orders,id',
         ]);
 
-        $collect = DB::transaction(function () use ($request) {
+        try {
+            $collect = DB::transaction(function () use ($request, $user) {
+                $order = Order::with(['items', 'collect'])->findOrFail($request->order_id);
 
-            $order = Order::with(['items', 'collect'])->findOrFail($request->order_id);
-
-            // 🔴 Vérifier statut commande
-            if (in_array($order->status, ['delivered', 'cancelled'])) {
-                throw ValidationException::withMessages([
-                    'order' => 'Impossible d’assigner une collecte à cette commande'
-                ]);
-            }
-
-            $existingCollect = $order->collect;
-
-            // ✅ CAS 1 : Une collecte existe déjà
-            if ($existingCollect) {
-
-                // 👉 Même agent → UPDATE
-                if ($existingCollect->collector_id == $request->agent_id) {
-
-                    $existingCollect->update([
-                        'status' => 'assigned'
-                    ]);
-
-                    return $existingCollect;
+                // 🔴 Vérifier statut commande
+                if (in_array($order->status, ['delivered', 'cancelled'])) {
+                    return Helpers::validation('Impossible de s’assigner cette commande');
                 }
 
-                // 👉 Autre agent → ANNULER
-                $existingCollect->update([
-                    'status' => 'cancelled'
+                $existingCollect = $order->collect;
+
+                // ✅ Si une collecte existe déjà pour cette commande
+                if ($existingCollect) {
+                    // Même agent → update status
+                    if ($existingCollect->collector_id == $user->agent->id) {
+                        $existingCollect->update(['status' => 'assigned']);
+                        return $existingCollect;
+                    }
+
+                    // Autre agent → annuler la collecte existante
+                    $existingCollect->update(['status' => 'cancelled']);
+                    CollectItem::where('collect_id', $existingCollect->id)->delete();
+                }
+
+                // 🔹 Créer une nouvelle collecte pour cette commande
+                $collect = Collect::create([
+                    'order_id' => $order->id,
+                    'collector_id' => $user->agent->id,
+                    'status' => 'assigned'
                 ]);
 
-                // option clean (si tu veux supprimer les items)
-                CollectItem::where('collect_id', $existingCollect->id)->delete();
-            }
-
-            // 🔴 Vérifier si agent occupé
-            $busy = Collect::where('collector_id', $request->agent_id)
-                ->whereIn('status', ['assigned', 'on_route'])
-                ->exists();
-
-            if ($busy) {
-                return Helpers::validation('Ce collecteur est déjà en mission');
-
-            }
-
-            // 🔹 Création nouvelle collecte
-            $collect = Collect::create([
-                'order_id' => $order->id,
-                'collector_id' => Auth::user()->agent->id,
-                'status' => 'assigned'
-            ]);
-
-            // 🔹 Copier items
-            $items = $order->items->map(function ($item) use ($collect) {
-                return [
+                // Copier les items
+                $items = $order->items->map(fn($item) => [
                     'collect_id' => $collect->id,
                     'product_id' => $item->product_id,
                     'quantity_ordered' => $item->quantity,
                     'quantity_collected' => 0,
                     'created_at' => now(),
                     'updated_at' => now()
-                ];
+                ]);
+                Log::info('Items à insérer dans collect_items : ', $items->toArray());
+                CollectItem::insert($items->toArray());
+
+                // 🔹 Mettre à jour la commande
+                $order->update([
+                    'status' => OrderStatus::COLECTOR_ASSIGNED,
+                    'collector_id' => $user->agent->id,
+                    'collection_status' => 'assigned'
+                ]);
+
+                return $collect;
             });
 
-            CollectItem::insert($items->toArray());
+            // ✅ Retour unifié avec Helpers
+            return Helpers::success($collect, 'Commande assignée avec succès ✅');
 
-            // 🔹 Update order
-            $order->update([
-                'status' => OrderStatus::COLECTOR_ASSIGNED,
-                'collection_status' => 'assigned'
-            ]);
-
-            return $collect;
-        });
-
-        return Helpers::success($collect, 'Collecteur assigné avec succès');
+        } catch (\Exception $e) {
+            Log::error('assignCollector error: ' . $e->getMessage());
+            return Helpers::validation('Erreur serveur, réessayez plus tard', 500);
+        }
     }
 
     // Marquer collecte terminée avec items collectés
     public function complete(Request $request, Collect $collect)
     {
-        $request->validate([
-            'items'=>'required|array|min:1' // array de {product_id, quantity_collected}
-        ]);
-
-        foreach($request->items as $item){
-            CollectItem::updateOrCreate(
-                ['collect_id'=>$collect->id,'product_id'=>$item['product_id']],
-                ['quantity_collected'=>$item['quantity_collected']]
-            );
+        // 🔐 Vérifier que l'agent connecté est bien celui de la collecte
+        $user = Auth::user();
+        if (!$user || !$user->agent || $collect->collector_id !== $user->agent->id) {
+            return Helpers::validation('Non autorisé à compléter cette collecte', 403);
         }
 
-        $collect->update(['status'=>'collected','collected_at'=>now()]);
+        // Validation des items
+        $request->validate([
+            'items' => 'required|array|min:1', // array de {product_id, quantity_collected}
+            'items.*.product_id' => 'required|integer|exists:products,id',
+            'items.*.quantity_collected' => 'required|numeric|min:0'
+        ]);
 
-        // Mettre à jour la commande
-        $order = $collect->order;
-        $order->update(['collection_status'=>'collected','status'=>'processing']);
+        try {
+            DB::transaction(function () use ($request, $collect) {
+                foreach ($request->items as $item) {
+                    CollectItem::updateOrCreate(
+                        ['collect_id' => $collect->id, 'product_id' => $item['product_id']],
+                        ['quantity_collected' => $item['quantity_collected']]
+                    );
+                }
 
-        return response()->json($collect->load('items'));
+                // Update statut de la collecte
+                $collect->update([
+                    'status' => 'collected',
+                    'collected_at' => now()
+                ]);
+
+                // Mettre à jour la commande associée
+                $order = $collect->order;
+                $order->update([
+                    'collection_status' => 'collected',
+                    'status' => 'processing' // 🔹 peut être mis à "ready_for_delivery" si tu veux
+                ]);
+            });
+
+            return Helpers::success(
+                $collect->load('items'),
+                'Collecte complétée avec succès ✅'
+            );
+
+        } catch (\Exception $e) {
+            Log::error('completeCollect error: ' . $e->getMessage());
+            return Helpers::validation('Erreur serveur, réessayez plus tard', 500);
+        }
     }
     // Voir détails d'une commande
     public function show($id)

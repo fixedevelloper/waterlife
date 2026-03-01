@@ -10,6 +10,7 @@ use App\Http\Helpers\ResponseHelper;
 use App\Http\Resources\OrderMiniResource;
 use App\Http\Resources\OrderResource;
 use App\Models\Address;
+use App\Models\Payment;
 use Illuminate\Http\Request;
 use App\Models\Order;
 use App\Models\OrderItem;
@@ -17,8 +18,7 @@ use App\Models\Product;
 use App\Models\Customer;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Carbon\Carbon;
-use function Symfony\Component\HttpKernel\HttpCache\store;
+
 
 class OrderController extends Controller
 {
@@ -123,6 +123,7 @@ class OrderController extends Controller
     public function store(Request $request)
     {
         $request->validate([
+            'payment_method'=>'required|string',
             'address_id' => 'required|exists:addresses,id',
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
@@ -185,24 +186,70 @@ class OrderController extends Controller
                 'total_amount' => $subtotal + $deliveryFee
             ]);
 
+            $payment = Payment::create([
+                'order_id' => $order->id, // 🔥 IMPORTANT
+                'method' => $request->payment_method,
+                'transaction_reference' => Str::uuid(), // 🔥 unique
+                'amount' => $order->total_amount,
+                'status' => 'pending',
+            ]);
             DB::commit();
 
-            return response()->json(
-                $order->load('items.product', 'address', 'customer'),
-                201
-            );
+            return Helpers::success($order);
 
         } catch (\Exception $e) {
 
             DB::rollBack();
 
-            return response()->json([
-                'message' => 'Erreur lors de la création',
-                'error' => $e->getMessage()
-            ], 500);
+            logger($e->getMessage());
+            return Helpers::error('Erreur lors de la création', $e->getMessage());
+
         }
     }
 
+    public function generatePaymentLink($id, Request $request)
+    {
+        $request->validate([
+            'phone' => 'required|string|min:9',
+            'operator' => 'required|in:MTN,ORANGE'
+        ]);
+
+
+        DB::beginTransaction();
+
+        try {
+
+            $order=Order::find($id);
+            $payment = $order->payment;
+         //   logger($order);
+            logger($payment);
+            if (!$payment) {
+                return Helpers::error('Paiement introuvable');
+            }
+
+            // 🔥 Générer token sécurisé
+            $token = Str::uuid();
+
+            $payment->update([
+                'phone' => $request->phone,
+                'operator' => $request->operator,
+                'status' => 'pending',
+                'token' => $token
+            ]);
+
+            DB::commit();
+
+            return Helpers::success([
+                'payment_url' => url("/pay/{$order->id}?token={$token}")
+            ]);
+
+        } catch (\Exception $e) {
+
+            DB::rollBack();
+            logger($e->getMessage());
+            return Helpers::error('Erreur lors de la génération du paiement');
+        }
+    }
 
 // Voir détails d'une commande
     public function show(Order $order)
