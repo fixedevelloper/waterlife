@@ -265,9 +265,9 @@ class OrderController extends Controller
 
         return new OrderMiniResource($order);
     }
-    public function showByOrderNumber(string $orderNumber)
+    public function showByOrderNumber($orderNumber)
     {
-        $order = Order::query()->where('order_number', $orderNumber)->first();
+        $order = Order::query()->where('id', $orderNumber)->first();
 
         if (!$order) {
             return response()->json([
