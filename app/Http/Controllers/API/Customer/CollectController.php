@@ -48,10 +48,7 @@ class CollectController extends Controller
             ->limit(5)
             ->get();
 
-        return ResponseHelper::success(
-             CollectResource::collection($collects),
-            'Liste des livraisons paginée'
-        );
+        return Helpers::success($collects);
     }
     // Assigner collecteur
     public function assign(Request $request)
