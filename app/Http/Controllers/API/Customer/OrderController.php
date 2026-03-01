@@ -123,7 +123,7 @@ class OrderController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'payment_method'=>'required|string',
+            'paymentMethod'=>'required|string',
             'address_id' => 'required|exists:addresses,id',
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
@@ -188,7 +188,7 @@ class OrderController extends Controller
 
             $payment = Payment::create([
                 'order_id' => $order->id, // 🔥 IMPORTANT
-                'method' => $request->payment_method,
+                'method' => $request->paymentMethod,
                 'transaction_reference' => Str::uuid(), // 🔥 unique
                 'amount' => $order->total_amount,
                 'status' => 'pending',
