@@ -205,24 +205,27 @@ class CollectController extends Controller
     }
     public function collect_show($orderId)
     {
-        $collect = Collect::with('items.product')
+        $collect = Collect::with(['items.product'])
             ->where('order_id', $orderId)
             ->firstOrFail();
 
         $items = $collect->items->map(function ($item) {
-            $product = $item->product;
 
             return [
                 'id' => $item->id,
-                'name' => $product?->name ?? 'Produit inconnu',
-            'volume' => $product?->volume_liters ? $product->volume_liters . 'L' : '',
-            'quantity_ordered' => $item->quantity_ordered ?? 0,
-            'quantity_collected' => $item->quantity_collected ?? 0,
-        ];
-    });
+                'name' => $item->product->name ?? 'Produit inconnu',
+                'volume' => $item->product->volume_liters
+                    ? $item->product->volume_liters . 'L'
+                    : null,
+                'quantity_ordered' => $item->quantity_ordered ?? 0,
+                'quantity_collected' => $item->quantity_collected ?? 0,
+            ];
+
+        })->values();
 
         return Helpers::success([
             'collect_id' => $collect->id,
+            'order_id' => $collect->order_id,
             'status' => $collect->status,
             'collected_at' => $collect->collected_at,
             'items' => $items
