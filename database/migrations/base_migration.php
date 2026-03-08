@@ -182,6 +182,9 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('order_id')->constrained()->cascadeOnDelete();
             $table->enum('method',['cash','mobile_money']);
+            $table->string('phone')->nullable();
+            $table->string('operator')->nullable();
+            $table->string('token')->nullable();
             $table->string('transaction_reference')->nullable();
             $table->decimal('amount', 10, 2);
             $table->enum('status',['pending','success','failed'])->default('pending');
