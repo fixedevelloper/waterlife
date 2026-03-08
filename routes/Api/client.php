@@ -25,7 +25,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('collects/{collect}/complete', [CollectController::class, 'complete']); // marquer collecté
     Route::get('collects/lasts', [CollectController::class, 'lastCollects']);
     Route::get('collects/{id}/detail', [CollectController::class, 'show']);
-    Route::get('collects/{orderId}/comparaison', [CollectController::class, 'collect_show']);
+    Route::get('collect/{orderId}/comparaison', [CollectController::class, 'collect_show']);
     Route::post('collects/{id}/update', [CollectController::class, 'update']);
     // Livraisons
 // -----------------------------
