@@ -2,7 +2,9 @@
 
 namespace App\Console\Commands;
 
+use App\Models\User;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Hash;
 
 class CreateAdminUser extends Command
 {
@@ -25,6 +27,13 @@ class CreateAdminUser extends Command
      */
     public function handle()
     {
-        //
+        User::create([
+            'name' => 'Super Admin',
+            'phone' => '650000000',
+            'email' => 'admin@admin.com',
+            'password' => Hash::make('password123'),
+            'role' => 'admin',
+            'is_active' => true,
+        ]);
     }
 }
