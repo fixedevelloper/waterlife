@@ -29,7 +29,7 @@ class CreateAdminUser extends Command
     {
         User::create([
             'name' => 'Super Admin',
-            'phone' => '650000000',
+            'phone' => '650 000000',
             'email' => 'admin@admin.com',
             'password' => Hash::make('password123'),
             'role' => 'admin',

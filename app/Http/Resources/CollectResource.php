@@ -50,7 +50,7 @@ class CollectResource extends JsonResource
         $this->whenLoaded('items')
     ),
 
-        'created_at' => $this->created_at?->toDateTimeString(),
+        'created_at' => $this->created_at,
     ];
 }
 }

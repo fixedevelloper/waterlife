@@ -43,12 +43,12 @@ class CollectController extends Controller
     }
     public function lastCollects()
     {
-        $collects = Collect::with(['order.items.product','items'])
+        $collects = Collect::with(['order.customer','items'])
             ->orderByDesc('collected_at')
             ->limit(5)
             ->get();
 
-        return Helpers::success($collects);
+        return Helpers::success(CollectResource::collection($collects));
     }
     // Assigner collecteur
     public function assign(Request $request)

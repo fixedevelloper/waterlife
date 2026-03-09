@@ -260,7 +260,8 @@ class OrderController extends Controller
             'collector.user',
             'deliveryAgent.user',
             'collect.items',
-            'delivery.items'
+            'delivery.items',
+            'address'
         ]);
 
         return new OrderMiniResource($order);
