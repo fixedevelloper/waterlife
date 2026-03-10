@@ -43,9 +43,11 @@ class DeliveryController extends Controller
 
     public function lastDeliveries()
     {
+        $agentId = Auth::user()->agent->id;
         $deliveries = Delivery::with(['order.items.product','items'])
-            ->orderByDesc('assigned_at') // Les plus récentes
-            ->limit(5)
+            ->where('delivery_agent_id', $agentId)
+            ->latest('assigned_at') // Les plus récentes
+            ->take(5)
             ->get();
 
         return Helpers::success($deliveries);
