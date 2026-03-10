@@ -43,7 +43,7 @@ class CollectController extends Controller
     }
     public function lastCollects()
     {
-        $agentId = Auth::user()->agent_id;
+        $agentId = Auth::user()->agent->id;
 
         $collects = Collect::with([
             'order.customer',
